@@ -7,6 +7,7 @@ import shutil
 import zipfile
 import time
 import tensorflow as tf
+from PIL import Image
 from glob import glob
 from glob import glob1
 from urllib.request import urlretrieve
@@ -149,8 +150,7 @@ def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_p
     print('All augmented images are saved!')
 
 
-def predict(image_file, sess, logits, keep_prob, image_pl, image_shape):
-    image = scipy.misc.imresize(scipy.misc.imread(image_file), image_shape)
+def predict(image, sess, logits, keep_prob, image_pl, image_shape):
     startTime = time.clock()
     im_softmax = sess.run(
         [tf.nn.softmax(logits)],
@@ -161,13 +161,15 @@ def predict(image_file, sess, logits, keep_prob, image_pl, image_shape):
         image_shape[0], image_shape[1], 1)
     mask = np.dot(segmentation, np.array([[0, 255, 0, 127]]))
     mask = scipy.misc.toimage(mask, mode="RGBA")
-    street_im = scipy.misc.toimage(image)
-    street_im.paste(mask, box=None, mask=mask)
+    # street_im = scipy.misc.toimage(image)
+    # street_im.paste(mask, box=None, mask=mask)
+    # get the mask
+    street_im = mask
 
     endTime = time.clock()
     speed_ = 1.0 / (endTime - startTime)
 
-    return os.path.basename(image_file), np.array(street_im), speed_
+    return np.array(street_im), speed_
 
 
 def gen_output(sess, logits, keep_prob, image_pl, data_folder, image_shape):
@@ -182,9 +184,10 @@ def gen_output(sess, logits, keep_prob, image_pl, data_folder, image_shape):
     :return: Output for for each test image
     """
     for image_file in glob(os.path.join(data_folder, '*.png')):
-        output = predict(image_file, sess, logits, keep_prob,
+        image = scipy.misc.imresize(scipy.misc.imread(image_file, mode='RGB'), image_shape)
+        output, speed = predict(image, sess, logits, keep_prob,
                          image_pl, image_shape)
-        yield output
+        yield os.path.basename(image_file), output, speed
 
 
 def pred_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image, print_speed=False):
@@ -202,10 +205,11 @@ def pred_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input
         sess, logits, keep_prob, input_image, data_dir, image_shape)
 
     counter = 0
-    output_size = (270, 480)
+    output_size = (480,270)
     # save to file
     for name, image, speed_ in image_outputs:
-        image = scipy.misc.imresize(image, output_size)
+        # image = scipy.misc.imresize(image, output_size)
+        image = np.array(Image.fromarray(image).resize(output_size))
         print(image.shape)
         scipy.misc.imsave(os.path.join(output_dir, name), image)
         if print_speed is True:
@@ -214,3 +218,5 @@ def pred_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input
                 counter, speed_))
 
     print('All augmented images are saved to: {}.'.format(output_dir))
+
+maybe_download_pretrained_vgg('./data')

@@ -269,5 +269,5 @@ if __name__ == '__main__':
         run()
     else:
         # use the pre-trained model to predict more images
-        test_data_path = './data/lfs_data'
+        test_data_path = './data/screen_images'
         predict_images(test_data_path, print_speed=True)
